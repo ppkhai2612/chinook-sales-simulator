@@ -47,6 +47,33 @@ This project is the **data source** — the starting point for building complete
 
 ## Technical Features
 
+### Data Generation
+
+- **Configurable batch operations**: Generates user-specified volumes of inserts, updates, and deletes
+- R**ealistic transaction simulation**:
+
+    - **Inserts**: Multi-item sales (1-5 tracks) with random customer and product selection, timestamped in D-1
+    - **Updates**: Adds additional items to random invoices from last 90 days while recalculating 
+    - **Deletes**: Complete invoice cancellations from last 90 days with cascading line item removal
+
+- **90-day modification window**: Updates and deletes operate on recent invoices only, simulating real-world return and cancellation policies
+- **Temporal distribution**: Random timestamp generation across 24-hour period for new sales maintains realistic data patterns
+- **Late-arriving changes**: Historical modifications within 90-day window create realistic data pipeline challenges
+
+### Database Architecture
+
+- **ACID compliance**: All operations execute within a single atomic transaction (commit or rollback)
+- **Concurrent-safe ID generation**: PostgreSQL SEQUENCE objects prevent ID collisions in multi-process scenarios
+- **Referential integrity**: Foreign key constraints enforced across Invoice, InvoiceLine, Customer, and Track tables
+- **Idempotent setup**: Database initialization scripts safely re-runnable without data corruption
+
+### Engineering Practices
+
+- **Secure credential management**: Database connections via neonctl CLI, zero hardcoded passwords
+- **Structured logging**: Configurable log levels (DEBUG/INFO/WARNING/ERROR) with ISO timestamps
+- **Database state validation**: Pre-execution checks verify existence of required functions and sequences
+Performance optimization: Batch processing with progress tracking and summary statistics
+- **Cross-platform compatibility**: Runs on Windows, macOS, and Linux without modifications
 
 ## Prerequisites - First Time Setup
 
@@ -222,38 +249,40 @@ psql "postgresql://username:password@host.neon.tech/chinook_db" -c 'SELECT COUNT
 ### Step 4: Get Your Neon Credentials
 
 You'll need three values to configure this project:
+- NEON_ORG_ID: Your organization ID
+- NEON_PROJECT_ID: Your project ID
+- NEON_DATABASE: The database name you chose in Step 2 (e.g., `chinook_db`)
 
-NEON_ORG_ID: Your organization ID
-NEON_PROJECT_ID: Your project ID
-NEON_DATABASE: The database name you chose in Step 2 (e.g., chinook_db)
-Finding Your Organization ID (NEON_ORG_ID)
-Via Neon Console:
+**Finding Your Organization ID (NEON_ORG_ID)**
 
-In the Neon Console, click on your organization name (top-left corner)
-Go to Settings (in the organization menu)
-Look under General information
-Copy the Organization ID (format: org-word-word-12345678)
-Via CLI (alternative method):
+**Via Neon Console**:
+1. In the Neon Console, click on your organization name (top-left corner)
+2. Go to **Settings** (in the organization menu)
+3. Look under **General information**
+4. Copy the **Organization ID** (format: `org-word-word-12345678`)
+
+**Via CLI** (alternative method):
 
 ```bash
 neonctl orgs list
 # Your org ID will be shown in the output
 ```
 
-Finding Your Project ID (NEON_PROJECT_ID)
-Via Neon Console:
+**Finding Your Project ID (NEON_PROJECT_ID)**
 
-Open your project in the Neon Console
-Click Settings (in the left sidebar)
-Under General, find and copy the Project ID
-Via CLI (alternative method):
+**Via Neon Console**:
+1. Open your project in the Neon Console
+2. Click **Settings** (in the left sidebar)
+3. Under **General**, find and copy the **Project ID**
+
+**Via CLI** (alternative method):
 
 ```bash
 neonctl projects list
 # Your project ID will be shown in the output
 ```
 
-Save these IDs — you'll need them in the next step!
+**Save these IDs** — you'll need them in the next step!
 
 ## Setup
 
