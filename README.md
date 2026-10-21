@@ -221,15 +221,182 @@ psql "postgresql://username:password@host.neon.tech/chinook_db" -c 'SELECT COUNT
 
 ### Step 4: Get Your Neon Credentials
 
+You'll need three values to configure this project:
+
+NEON_ORG_ID: Your organization ID
+NEON_PROJECT_ID: Your project ID
+NEON_DATABASE: The database name you chose in Step 2 (e.g., chinook_db)
+Finding Your Organization ID (NEON_ORG_ID)
+Via Neon Console:
+
+In the Neon Console, click on your organization name (top-left corner)
+Go to Settings (in the organization menu)
+Look under General information
+Copy the Organization ID (format: org-word-word-12345678)
+Via CLI (alternative method):
+
+```bash
+neonctl orgs list
+# Your org ID will be shown in the output
+```
+
+Finding Your Project ID (NEON_PROJECT_ID)
+Via Neon Console:
+
+Open your project in the Neon Console
+Click Settings (in the left sidebar)
+Under General, find and copy the Project ID
+Via CLI (alternative method):
+
+```bash
+neonctl projects list
+# Your project ID will be shown in the output
+```
+
+Save these IDs — you'll need them in the next step!
+
 ## Setup
+
+**Prerequisites**: Make sure you've completed the [Prerequisites](#prerequisites---first-time-setup) and [Setting Up Your Neon Database](#setting-up-your-neon-database) sections above.
+
+1. **Clone the repository**:
+
+    ```bash
+    git clone https://github.com/ppkhai2612/chinook-sales-simulator.git
+    cd chinook-sales-simulator
+    ```
+
+2. **Create a `.env` file**: Copy the example file and fill in your Neon credentials (from [Step 4](#step-4-get-your-neon-credentials) above):
+
+    ```bash
+    cp .env.example .env
+    # Windows (CMD) users: use 'copy' instead of 'cp'
+    ```
+    
+    Edit `.env` and add the credentials you found earlier:
+
+    ```bash
+    NEON_ORG_ID=org-your-actual-org-id
+    NEON_PROJECT_ID=your-actual-project-id
+    NEON_DATABASE=chinook_db
+    ```
+
+    **Critical**: The `NEON_DATABASE` value MUST match the database name you created in [Step 2](#step-2-choose-your-database-name). If you used a different name than `chinook_db`, use that name here.
+
+    Optional parameters you can configure:
+
+    ```bash
+    # Optional: specify database role (default: project default)
+    # NEON_ROLE=your_role_name
+
+    # Optional: specify branch (default: main)
+    # NEON_BRANCH=main
+
+    # Optional: logging level (default: INFO)
+    # LOG_LEVEL=DEBUG
+    ```
+
+3. **Install dependencies**:
+
+    ```bash
+    uv sync
+    ```
+
+4. **Set up the database**: Run the automated setup command. This will:
+
+    - Validate your configuration and test connectivity
+    - Update historical invoice data to align with D-1 workflow
+    - Create all required simulation functions (`INSERT`, `UPDATE`, `DELETE`) and sequences
+
+    ```bash
+    uv run src/main.py setup
+    ```
+
+    The setup is **idempotent** and safe to run multiple times.
 
 ## Usage
 
+All commands are run via the `src/main.py` script. The simulator supports generating a mix of inserts, updates, and deletes in a single execution.
+
+The script prompts for three space-separated integers:
+1. Number of **new sales** (Inserts)
+2. Number of **sale updates** (Updates)
+3. Number of **sale cancellations** (Deletes)
+
+### Interactive Mode (Recommended)
+
+Run the simulator and wait for it to prompt you for input.
+
+```bash
+uv run src/main.py simulate
+```
+
+You will see a prompt like this. Enter three numbers and press Enter:
+
+```bash
+Enter the number of INSERTS, UPDATES, and DELETES for D-1 (e.g., '100 5 2'): 100 5 2
+```
+
+### Non-Interactive Mode
+
+To pass the numbers directly (useful for automation), you can echo a string with the three values and pipe it to the command.
+
+```bash
+# Format: "INSERTS UPDATES DELETES"
+echo "100 5 2" | uv run src/main.py simulate
+```
+
+### Example Output
+
+```bash
+Enter the number of INSERTS, UPDATES, and DELETES for D-1 (e.g., '100 5 2'): 100 5 2
+2026-10-21 10:40:21 - d1_sales_simulator - INFO - === D-1 Sales Simulator Starting ===
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Database connection established
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Validating database state...
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Database state validation successful
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Starting batch operation in a SINGLE TRANSACTION...
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Starting batch operation for D-1 (2026-10-20)
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Requested: 100 Inserts, 5 Updates, 2 Deletes
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Processing 2 DELETES...
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Progress: 1/2 deletes executed for InvoiceId 394.
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Progress: 2/2 deletes executed for InvoiceId 408.
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Processing 5 UPDATES...
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Progress: 1/5 updates executed for InvoiceId 395.
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Progress: 2/5 updates executed for InvoiceId 412.
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Progress: 3/5 updates executed for InvoiceId 402.
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Progress: 4/5 updates executed for InvoiceId 410.
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Progress: 5/5 updates executed for InvoiceId 401.
+2026-10-21 10:40:22 - d1_sales_simulator - INFO - Processing 100 INSERTS...
+2026-10-21 10:40:23 - d1_sales_simulator - INFO - Progress: 10/100 (10%) - Pending InvoiceId=422, Total=$1.98
+2026-10-21 10:40:23 - d1_sales_simulator - INFO - Progress: 20/100 (20%) - Pending InvoiceId=432, Total=$4.95
+2026-10-21 10:40:23 - d1_sales_simulator - INFO - Progress: 30/100 (30%) - Pending InvoiceId=442, Total=$2.98
+2026-10-21 10:40:24 - d1_sales_simulator - INFO - Progress: 40/100 (40%) - Pending InvoiceId=452, Total=$2.97
+2026-10-21 10:40:24 - d1_sales_simulator - INFO - Progress: 50/100 (50%) - Pending InvoiceId=462, Total=$2.97
+2026-10-21 10:40:25 - d1_sales_simulator - INFO - Progress: 60/100 (60%) - Pending InvoiceId=472, Total=$2.97
+2026-10-21 10:40:25 - d1_sales_simulator - INFO - Progress: 70/100 (70%) - Pending InvoiceId=482, Total=$4.95
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Progress: 80/100 (80%) - Pending InvoiceId=492, Total=$1.98
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Progress: 90/100 (90%) - Pending InvoiceId=502, Total=$3.96
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Progress: 100/100 (100%) - Pending InvoiceId=512, Total=$2.98
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Batch successfully prepared. Committing transaction...
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - SUCCESS: All operations committed to the database.
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Simulation log saved to: /home/khai2612/chinook-sales-simulator/simulation_logs/simulation_2026-10-21_03-40-21.toml
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Summary: 100 new sales inserted, 5 updated, 2 deleted.
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Total new revenue: $311.06
+2026-10-21 10:40:26 - d1_sales_simulator - INFO - Average new sale: $3.11
+```
 
 ## Verifying Simulation Results
 
 
+### Example Verification Output
+
+
 ## Architecture & Implementation
+
+
+### Project Structure
+
+### Design Decisions
 
 
 ## Glossary
