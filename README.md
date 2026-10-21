@@ -387,18 +387,115 @@ Enter the number of INSERTS, UPDATES, and DELETES for D-1 (e.g., '100 5 2'): 100
 
 ## Verifying Simulation Results
 
+After running a simulation, a detailed log file in TOML format is created in the `simulation_logs/` directory. This log contains a full record of every operation performed (inserts, updates, and deletes).
+
+You can verify the integrity of the simulation by running the `verify_simulation.py` script. This script automatically:
+1. Finds the most recent simulation log.
+2. Reads the summary and every individual operation from the log file.
+3. Connects to the database and queries it to ensure that the state of the data perfectly matches what was recorded in the log.
+4. Reports on its findings, confirming that every insert, update, and delete was successfully and correctly applied.
+
+```bash
+uv run src/verify_simulation.py
+```
 
 ### Example Verification Output
 
+```bash
+2026-10-21 11:34:45 - __main__ - INFO - === Starting Log-Based Simulation Verification ===
+2026-10-21 11:34:45 - __main__ - INFO - Found latest log file: simulation_2026-10-21_03-40-21.toml
+2026-10-21 11:34:45 - __main__ - INFO - Verifying 107 operations for D-1: 2026-10-20
+2026-10-21 11:34:51 - __main__ - INFO - --- Verifying 100 Inserts ---
+2026-10-21 11:34:57 - __main__ - INFO - --- Verifying 2 Deletes ---
+2026-10-21 11:34:57 - __main__ - INFO - --- Verifying 5 Updates ---
+2026-10-21 11:34:57 - __main__ - INFO - --- Verification Summary ---
+2026-10-21 11:34:57 - __main__ - INFO - ✅ SUCCESS: All 107 verified operations are consistent with the log.
+```
 
 ## Architecture & Implementation
 
-
 ### Project Structure
+
+```bash
+chinook-sales-simulator
+├── .env                              # Environment variables (gitignored)
+├── .env.example                      # Configuration template
+├── .gitignore                        # .gitignore file
+├── pyproject.toml                    # Python dependencies & metadata
+├── README.md                         # Documentation
+├── simulation_logs/                  # Output directory for TOML log files
+├── sql/                              # Database schema layer
+│   ├── simulation_functions.sql      # PL/pgSQL stored procedures (all DML)
+│   └── update_historical_data.sql    # Historical data alignment
+├── src/                              # Python application layer
+│   ├── d1_sales_simulator.py         # Core simulation engine
+│   ├── main.py                       # CLI interface and orchestration
+│   └── verify_simulation.py          # Log-based data validation utility
+```
 
 ### Design Decisions
 
+#### Separation of Concerns
+
+- **Python layer**: Orchestration, CLI interface, connection management, and transaction control
+- **PostgreSQL layer**: Business logic encapsulated in stored procedures for performance and atomicity
+
+#### Why PL/pgSQL Functions?
+
+- **Performance**: Minimizes network round-trips; all data manipulation occurs server-side
+- **Atomicity**: Database enforces transactional guarantees at the storage layer
+- **Concurrent safety**: SEQUENCE objects provide lock-free ID generation
+- **Maintainability**: Business logic versioned alongside schema in SQL files
+
+#### Technologies Choices
+
+- **PostgreSQL 16**: Advanced ACID compliance, mature MVCC, robust constraint enforcement
+- **Neon**: Serverless PostgreSQL with connection pooling and auto-scaling capabilities
+- **Python 3.11+**: Type hints, improved error messages, performance enhancements
+- **uv package manager**: 10-100x faster than pip with deterministic dependency resolution
 
 ## Glossary
 
+Quick reference for technical terms used in this project:
+
+| **Term** | **Definition** |
+|-|-|
+| **D-1** | "Day minus 1" — yesterday. In data engineering, processing yesterday's data today (common batch pattern). |
+| **OLTP** | Online Transaction Processing — database optimized for day-to-day operations (inserts, updates). Opposite of OLAP (analytics). |
+| **ETL/ELT** | Extract, Transform, Load / Extract, Load, Transform — processes for moving data between systems. |
+| **Syntheic Data** | Artificially generated data that mimics real data patterns, used for testing and development. |
+| **Idempotent** | Safe to run multiple times without unintended side effects. Running the same operation twice produces the same result. |
+| **Batch Processing** | Processing data in groups (batches) rather than one record at a time. Common in overnight data pipelines. |
+| **Sequence** | PostgreSQL feature for generating unique, sequential IDs safely in concurrent environments. |
+| **Lakehouse** | Modern data architecture combining data lake (storage) and data warehouse (analytics) features. |
+| **Medallion Architecture** | Data organization pattern with Bronze (raw), Silver (cleaned), and Gold (aggregated) layers. |
+
 ## Troubleshooting
+
+**"Function 'simulate_new_sale' not found" (or update/delete function)**
+- Your database setup is likely incomplete or outdated. Run the automated setup again: `uv run src/main.py setup`
+
+**"neonctl not found"**
+- Install Neon CLI: `npm i -g neonctl`
+- See [Prerequisites](#prerequisites---first-time-setup) section for details
+
+**"NEON_ORG_ID and NEON_PROJECT_ID must be set"**
+- Create .env file from .env.example and add your credentials
+- See [Setting Up Your Neon Database](#setting-up-your-neon-database) section for how to find these IDs
+
+**"psql: command not found"**
+- Install PostgreSQL client (see [Prerequisites](#prerequisites---first-time-setup))
+- You only need the client, not the full PostgreSQL server
+
+**Need to reset historical data?**
+- The setup command is idempotent. If you need to re-align historical dates, you can run it again: `uv run src/main.py setup`
+
+**Want more detailed logs?**
+- Add `LOG_LEVEL=DEBUG` to your `.env` file
+
+**Import failed with "database chinook already exists"**
+- That's okay! It means you already imported it. Skip to the verification step.
+
+**Verification shows wrong number of invoices**
+- Expected: 412 invoices
+- If different, try dropping and recreating: `psql "<connection-string>" -c "DROP DATABASE chinook;"` then repeat [Step 2 of Setting Up Your Neon Database](#step-2-choose-your-database-name)
